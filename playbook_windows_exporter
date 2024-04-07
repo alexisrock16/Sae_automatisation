@@ -1,0 +1,29 @@
+- name: Installer Windows Exporter pour la surveillance Prometheus
+  hosts: windows_servers
+  gather_facts: no
+  tasks:
+    - name: Télécharger windows_exporter
+      win_get_url:
+        url: "https://github.com/prometheus-community/windows_exporter/releases/download/v0.16.0/windows_exporter-0.16.0-amd64.msi"
+        dest: "C:\\Temp\\windows_exporter.msi"
+        checksum: "sha256:YOUR_CHECKSUM_HERE"
+
+    - name: Installer windows_exporter
+      win_package:
+        path: "C:\\Temp\\windows_exporter.msi"
+        arguments: '/quiet ENABLED_COLLECTORS="cpu,cs,logical_disk,net,os,service,system"'
+        state: present
+
+    - name: Ajouter une règle de firewall pour permettre le trafic vers windows_exporter
+      win_firewall_rule:
+        name: "Prometheus Windows Exporter"
+        localport: "9182"
+        action: allow
+        direction: in
+        protocol: TCP
+        enable: yes
+
+    - name: Redémarrer le service windows_exporter pour appliquer les changements
+      win_service:
+        name: windows_exporter
+        state: restarted

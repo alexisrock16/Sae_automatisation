@@ -1,0 +1,4 @@
+- hosts: ldap_servers
+  become: yes
+  roles:
+    - samba_ad_dc

@@ -1,0 +1,1 @@
+{"dependencies":[["http-2-next",[">= 1.0.3"]],["httpx",["= 1.2.3"]]],"checksum":"72e34348f5e8cdacd5fa1fab7f2e5a05d8fe0c0d6e8bd045f0f2bf46f33a0166","vagrant_version":"2.4.1"}

@@ -1,0 +1,60 @@
+- name: Configuration d'un serveur Windows avec plusieurs roles
+  hosts: all
+  tasks:
+    - name: Exécuter des commandes PowerShell pour préparer le contrôleur de domaine
+      ansible.windows.win_powershell:
+        script: |
+          Add-WindowsFeature AD-Domain-Services
+          Set-TimeZone -Name "Romance Standard Time"
+
+    - name: Changer le nom d'hôte en serv1
+      ansible.windows.win_hostname:
+        name: serv1
+      register: hostname
+
+    - name: Redémarrer si nécessaire
+      ansible.windows.win_reboot:
+      when: hostname.reboot_required
+
+    - name: Configurer une adresse IP statique
+      win_shell: |
+        Get-NetIpAddress -InterfaceAlias 'Ethernet*' | New-NetIpAddress -IpAddress 10.0.2.112 -PrefixLength 24 -DefaultGateway 10.0.2.2
+      async: 100
+      poll: 0
+
+    - name: Installer le rôle ADDS et le configurer avec des options minimales
+      ansible.windows.win_domain:
+        dns_domain_name: saepecheric.local
+        safe_mode_password: "Vagrant@2003admin"
+        domain_mode: "Default"  # mode de domaine correct
+        forest_mode: "Default"  # mode de forêt correct
+      register: domain_install
+
+    - name: Vérifier si besoin de redémarrer puis suite du projet
+      ansible.windows.win_reboot:
+      when: domain_install.reboot_required
+
+    - name: Ajouter un enregistrement DNS de type A pour machine2 docker
+      win_shell: |
+        Add-DnsServerResourceRecordA -Name "machine2" -ZoneName "saepecheric.local" -IPv4Address "10.0.2.112"
+      when: domain_install.changed
+
+    - name: Créer un dossier pour le partage de fichiers
+      ansible.windows.win_file:
+        path: C:\Partage
+        state: directory
+
+    - name: Vérifier si le partage existe déjà
+      ansible.windows.win_command: powershell.exe "Get-SmbShare -Name Partage"
+      register: smb_share
+      ignore_errors: yes
+
+    - name: Partager le dossier sur le réseau si non existant
+      ansible.windows.win_share:
+        name: Partage
+        description: Dossier partagé pour la sauvegarde
+        path: C:\Partage
+        list: yes
+        full: everyone
+      when: smb_share.rc != 0
+
